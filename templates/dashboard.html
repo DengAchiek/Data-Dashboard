@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<body data-bs-spy="scroll" data-bs-target="#sidebarMenu" data-bs-offset="80" tabindex="0">
+
+<div class="row">
+  <!-- Sidebar -->
+  <div class="col-md-3 mb-4">
+    <div class="position-sticky" style="top: 20px;">
+      <div class="card shadow-sm h-100 d-flex flex-column justify-content-between" style="min-height: 85vh;">
+        <div class="card-body">
+          <h5 class="card-title">📁 Menu</h5>
+          <ul class="nav flex-column" id="sidebarMenu">
+            <li class="nav-item mb-2">
+              <a class="nav-link link-dark" href="#summary">📋 Summary Statistics</a>
+            </li>
+            <li class="nav-item mb-2">
+              <a class="nav-link link-dark" href="#cleaning">🧼 Data Cleaning</a>
+            </li>
+            <li class="nav-item mb-2">
+              <a class="nav-link link-dark" href="#visuals">📈 Visualizations</a>
+            </li>
+            <li class="nav-item mb-2">
+              <a class="nav-link link-dark" href="#predictions">🔮 Predictions</a>
+            </li>
+            <li class="nav-item mb-2">
+              <a class="nav-link link-dark" href="#history">🕓 Previous Actions</a>
+            </li>
+            <li class="nav-item mb-2">
+              <a class="nav-link link-dark" href="#export">💾 Export</a>
+            </li>
+          </ul>
+        </div>
+        <div class="card-footer bg-transparent border-0 text-center">
+          <a href="{{ url_for('logout') }}" class="btn btn-outline-danger w-100">🚪 Logout</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div class="col-md-9">
+
+    <!-- 📋 Summary -->
+    <div class="card p-4 mb-4" id="summary">
+      <h3>📋 Summary Statistics</h3>
+      <div class="table-responsive">
+        {{ tables | safe }}
+      </div>
+    </div>
+
+    <!-- 🧼 Cleaning -->
+    <div class="card p-4 mb-4" id="cleaning">
+      <h3>🧼 Data Cleaning</h3>
+      <form method="POST" class="row g-3">
+        <div class="col-md-6">
+          <label for="action" class="form-label">Cleaning Action</label>
+          <select name="action" id="action" class="form-select">
+            <option value="dropna">Drop rows with nulls</option>
+            <option value="fillna_mean">Fill nulls with Mean</option>
+            <option value="fillna_median">Fill nulls with Median</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label for="column" class="form-label">Target Column</label>
+          <select name="column" id="column" class="form-select">
+            {% for col in columns %}
+              <option value="{{ col }}">{{ col }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-12 text-end">
+          <button type="submit" class="btn btn-warning">🧹 Apply Cleaning</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- 📈 Visualizations -->
+    <div class="card p-4 mb-4" id="visuals">
+      <h3>📈 Visualizations</h3>
+      <form method="POST" action="/visualize" class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label">Chart Type</label>
+          <select name="chart_type" class="form-select">
+            <option value="bar">Bar Chart</option>
+            <option value="scatter">Scatter Plot</option>
+            <option value="heatmap">Correlation Heatmap</option>
+            <option value="histogram">Histogram</option>
+            <option value="pie">Pie Chart</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">X-Axis</label>
+          <select name="x_axis" class="form-select">
+            {% for col in columns %}
+              <option value="{{ col }}">{{ col }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Y-Axis</label>
+          <select name="y_axis" class="form-select">
+            {% for col in columns %}
+              <option value="{{ col }}">{{ col }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-12 text-end">
+          <button type="submit" class="btn btn-info">📊 Generate Chart</button>
+        </div>
+      </form>
+
+      <div class="text-center mt-4">
+        <img src="/static/chart.png" class="img-fluid" alt="Chart will appear here" />
+      </div>
+    </div>
+
+    <!-- 🔮 Predictions -->
+    <div class="card p-4 mb-4" id="predictions">
+      <h3>🔮 Predictions</h3>
+      <p>Coming soon: Machine Learning predictions based on your data.</p>
+    </div>
+
+    <!-- 🕓 Previous Actions -->
+    <div class="card p-4 mb-4" id="history">
+      <h3>🕓 Previous Actions</h3>
+      <p>Track of file uploads, cleaning steps, and charts generated will be shown here.</p>
+    </div>
+
+    <!-- 💾 Export -->
+    <div class="card p-4 text-center" id="export">
+      <h3>💾 Export Cleaned Data</h3>
+      <a href="/export/csv" class="btn btn-success m-2">Download as CSV</a>
+      <a href="/export/excel" class="btn btn-success m-2">Download as Excel</a>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}

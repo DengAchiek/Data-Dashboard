@@ -1,70 +1,81 @@
+
 from flask import Flask, render_template, request, redirect, url_for, send_file, session, flash
 import pandas as pd
 import os
+import matplotlib
+matplotlib.use('Agg')  # ✅ Must come before pyplot
 import matplotlib.pyplot as plt
 import seaborn as sns
 import uuid
 import io
-import matplotlib
-matplotlib.use('Agg')  # ✅ MUST be before importing pyplot
-import matplotlib.pyplot as plt
-import mysql.connector
+import psycopg2
+from psycopg2 import sql, IntegrityError
 from werkzeug.security import generate_password_hash, check_password_hash
-# Import authentication helpers
-from auth import register_user, validate_login
-
-# dataabase connection
 
 
-# MySQL DB config
+# Database Configuration (Render)
+
 DB_CONFIG = {
-    'host': 'localhost',
-    'user': 'root',
-    'password': 'student',
-    'database': 'data_dashboard'
+    "host": os.getenv("DB_HOST"),
+    "port": os.getenv("DB_PORT", "5432"),
+    "dbname": os.getenv("DB_NAME"),
+    "user": os.getenv("DB_USER"),
+    "password": os.getenv("DB_PASSWORD"),
 }
 
+
+# Database Helpers
+
 def init_db():
-    conn = mysql.connector.connect(**DB_CONFIG)
+    conn = psycopg2.connect(**DB_CONFIG)
     cursor = conn.cursor()
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS Users (
-            user_id INT AUTO_INCREMENT PRIMARY KEY,
-            email VARCHAR(250) UNIQUE,
-            password_hash VARCHAR(100)
+        CREATE TABLE IF NOT EXISTS users (
+            user_id SERIAL PRIMARY KEY,
+            email VARCHAR(250) UNIQUE NOT NULL,
+            password_hash VARCHAR(200) NOT NULL
         )
     ''')
     conn.commit()
+    cursor.close()
     conn.close()
 
 def register_user(email, password):
-    conn = None  # ensure conn is defined
     hashed_password = generate_password_hash(password)
+    conn = None
     try:
-        conn = mysql.connector.connect(**DB_CONFIG)
+        conn = psycopg2.connect(**DB_CONFIG)
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO Users (email, password_hash) VALUES (%s, %s)", (email, hashed_password))
+        cursor.execute(
+            "INSERT INTO users (email, password_hash) VALUES (%s, %s)",
+            (email, hashed_password)
+        )
         conn.commit()
+        cursor.close()
         return True
-    except mysql.connector.IntegrityError:
+    except IntegrityError:
+        if conn:
+            conn.rollback()
         return False
     finally:
         if conn:
             conn.close()
 
-
 def validate_login(email, password):
     conn = None
     try:
-        conn = mysql.connector.connect(**DB_CONFIG)
+        conn = psycopg2.connect(**DB_CONFIG)
         cursor = conn.cursor()
-        cursor.execute("SELECT password_hash FROM Users WHERE email = %s", (email,))
+        cursor.execute("SELECT password_hash FROM users WHERE email = %s", (email,))
         result = cursor.fetchone()
+        cursor.close()
         return check_password_hash(result[0], password) if result else False
     finally:
         if conn:
             conn.close()
 
+
+# Flask App Config
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -72,14 +83,14 @@ app.secret_key = 'your_secret_key_here'  # Required for session handling
 
 data_store = {}
 
-# Home (login required)
+# Routes
 @app.route('/')
 def index():
     if 'user' not in session:
         return redirect(url_for('login'))
     return render_template('index.html')
 
-# User Registration
+# Signup
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
@@ -92,8 +103,7 @@ def signup():
             flash("⚠️ User already exists.")
     return render_template('signup.html')
 
-
-# Login Page
+# Login
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -130,7 +140,7 @@ def upload():
         data_store['df'] = df
         return redirect(url_for('dashboard'))
 
-    flash("No file uploaded.")
+    flash("⚠️ No file uploaded.")
     return redirect(url_for('index'))
 
 # Dashboard
@@ -158,6 +168,7 @@ def dashboard():
     desc = df.describe(include='all').to_html(classes='table table-striped')
     return render_template('dashboard.html', tables=desc, columns=df.columns)
 
+# Visualization
 @app.route('/visualize', methods=['POST'])
 def visualize():
     if 'user' not in session:
@@ -168,10 +179,8 @@ def visualize():
     x_axis = request.form.get('x_axis')
     y_axis = request.form.get('y_axis')
 
-    plt.clf()  # Clear the current figure
-
+    plt.clf()
     try:
-        # Plot based on chart type
         if chart_type == 'bar':
             df[x_axis].value_counts().plot(kind='bar')
         elif chart_type == 'scatter':
@@ -183,20 +192,17 @@ def visualize():
         elif chart_type == 'pie':
             df.iloc[:, -1].value_counts().plot.pie(autopct='%1.1f%%')
 
-        # Save the figure instead of showing it
         chart_path = 'static/chart.png'
         plt.tight_layout()
         plt.savefig(chart_path)
-        plt.close('all')  # ✅ Important: close plot to avoid memory issues
+        plt.close('all')
 
         flash("✅ Chart generated successfully!", "success")
-
     except Exception as e:
         flash(f"⚠️ Visualization error: {e}", "danger")
         plt.close('all')
 
     return redirect(url_for('dashboard'))
-
 
 # Export cleaned data
 @app.route('/export/<filetype>')
@@ -215,11 +221,13 @@ def export(filetype):
         df.to_excel(output, index=False)
         output.seek(0)
         return send_file(output, download_name="cleaned_data.xlsx", as_attachment=True, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    
+
     return "Unsupported export type"
 
-# Run app
+# Run App
 if __name__ == '__main__':
     os.makedirs('uploads', exist_ok=True)
     os.makedirs('static', exist_ok=True)
+    init_db()   # ✅ Ensure users table exists
     app.run(debug=True)
+

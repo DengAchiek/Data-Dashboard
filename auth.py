@@ -1,41 +1,68 @@
-import sqlite3
+
+import psycopg2
+from psycopg2 import IntegrityError
+import os
 from werkzeug.security import generate_password_hash, check_password_hash
 
-DB_PATH = 'users.db'
+# Database Config (Render)
+
+DB_CONFIG = {
+    "host": os.getenv("DB_HOST"),
+    "port": os.getenv("DB_PORT", "5432"),
+    "dbname": os.getenv("DB_NAME"),
+    "user": os.getenv("DB_USER"),
+    "password": os.getenv("DB_PASSWORD"),
+}
+
+
+# Initialize Users Table
 
 def init_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = psycopg2.connect(**DB_CONFIG)
     cursor = conn.cursor()
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL
+            id SERIAL PRIMARY KEY,
+            email VARCHAR(250) UNIQUE NOT NULL,
+            password VARCHAR(200) NOT NULL
         )
     ''')
     conn.commit()
+    cursor.close()
     conn.close()
 
 
+# Register User
+
 def register_user(email, password):
     hashed_password = generate_password_hash(password)
+    conn = None
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = psycopg2.connect(**DB_CONFIG)
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO users (email, password) VALUES (?, ?)", (email, hashed_password))
+        cursor.execute(
+            "INSERT INTO users (email, password) VALUES (%s, %s)",
+            (email, hashed_password)
+        )
         conn.commit()
+        cursor.close()
         return True
-    except sqlite3.IntegrityError:
+    except IntegrityError:
+        if conn:
+            conn.rollback()
         return False  # Email already exists
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
+# Validate Login
 
 def validate_login(email, password):
-    conn = sqlite3.connect(DB_PATH)
+    conn = psycopg2.connect(**DB_CONFIG)
     cursor = conn.cursor()
-    cursor.execute("SELECT password FROM users WHERE email = ?", (email,))
+    cursor.execute("SELECT password FROM users WHERE email = %s", (email,))
     row = cursor.fetchone()
+    cursor.close()
     conn.close()
 
     if row:

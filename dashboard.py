@@ -5,6 +5,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import uuid
 import io
+import matplotlib
+matplotlib.use('Agg')  # ✅ MUST be before importing pyplot
+import matplotlib.pyplot as plt
 import mysql.connector
 from werkzeug.security import generate_password_hash, check_password_hash
 # Import authentication helpers
@@ -155,7 +158,6 @@ def dashboard():
     desc = df.describe(include='all').to_html(classes='table table-striped')
     return render_template('dashboard.html', tables=desc, columns=df.columns)
 
-# Visualizations
 @app.route('/visualize', methods=['POST'])
 def visualize():
     if 'user' not in session:
@@ -166,8 +168,10 @@ def visualize():
     x_axis = request.form.get('x_axis')
     y_axis = request.form.get('y_axis')
 
-    plt.clf()
+    plt.clf()  # Clear the current figure
+
     try:
+        # Plot based on chart type
         if chart_type == 'bar':
             df[x_axis].value_counts().plot(kind='bar')
         elif chart_type == 'scatter':
@@ -178,11 +182,19 @@ def visualize():
             df.hist(figsize=(10, 6))
         elif chart_type == 'pie':
             df.iloc[:, -1].value_counts().plot.pie(autopct='%1.1f%%')
+
+        # Save the figure instead of showing it
         chart_path = 'static/chart.png'
         plt.tight_layout()
         plt.savefig(chart_path)
+        plt.close('all')  # ✅ Important: close plot to avoid memory issues
+
+        flash("✅ Chart generated successfully!", "success")
+
     except Exception as e:
-        flash(f"⚠️ Visualization error: {e}")
+        flash(f"⚠️ Visualization error: {e}", "danger")
+        plt.close('all')
+
     return redirect(url_for('dashboard'))
 
 

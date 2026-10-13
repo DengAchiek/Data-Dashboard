@@ -3,7 +3,7 @@ from flask import Flask, render_template, request, redirect, url_for, send_file,
 import pandas as pd
 import os
 import matplotlib
-matplotlib.use('Agg')  # ✅ Must come before pyplot
+matplotlib.use('Agg')  # Must come before pyplot
 import matplotlib.pyplot as plt
 import seaborn as sns
 import uuid
@@ -97,10 +97,10 @@ def signup():
         email = request.form['email']
         password = request.form['password']
         if register_user(email, password):
-            flash("✅ Registration successful. Please login.")
+            flash("Registration successful. Please login.")
             return redirect(url_for('login'))
         else:
-            flash("⚠️ User already exists.")
+            flash("User already exists.")
     return render_template('signup.html')
 
 # Login
@@ -111,10 +111,10 @@ def login():
         password = request.form['password']
         if validate_login(email, password):
             session['user'] = email
-            flash("✅ Login successful.")
+            flash("Login successful.")
             return redirect(url_for('index'))
         else:
-            flash("❌ Invalid credentials.")
+            flash("Invalid credentials.")
     return render_template('login.html')
 
 # Logout
@@ -140,7 +140,7 @@ def upload():
         data_store['df'] = df
         return redirect(url_for('dashboard'))
 
-    flash("⚠️ No file uploaded.")
+    flash("No file uploaded.")
     return redirect(url_for('index'))
 
 # Dashboard
@@ -151,7 +151,7 @@ def dashboard():
 
     df = data_store.get('df')
     if df is None:
-        flash("⚠️ Please upload a dataset first.")
+        flash("Please upload a dataset first.")
         return redirect(url_for('index'))
 
     if request.method == 'POST':
@@ -197,9 +197,9 @@ def visualize():
         plt.savefig(chart_path)
         plt.close('all')
 
-        flash("✅ Chart generated successfully!", "success")
+        flash("Chart generated successfully!", "success")
     except Exception as e:
-        flash(f"⚠️ Visualization error: {e}", "danger")
+        flash(f"Visualization error: {e}", "danger")
         plt.close('all')
 
     return redirect(url_for('dashboard'))
@@ -228,6 +228,6 @@ def export(filetype):
 if __name__ == '__main__':
     os.makedirs('uploads', exist_ok=True)
     os.makedirs('static', exist_ok=True)
-    init_db()   # ✅ Ensure users table exists
+    init_db()   # Ensure users table exists
     app.run(debug=True)
 
